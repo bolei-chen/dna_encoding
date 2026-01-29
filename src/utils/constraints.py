@@ -40,11 +40,11 @@ def is_gc_balanced(codeword: str, lower_bound: float = 0.45, upper_bound: float 
     gc_fraction = (codeword.count("G") + codeword.count("C")) / len(codeword)
     return lower_bound <= gc_fraction <= upper_bound
 
-def is_valid_codeword(codeword: str, ell: int, *, alphabet: Iterable[str] = DEFAULT_ALPHABET) -> bool:
+def is_valid_codeword(codeword: str, ell: int, *, alphabet: Iterable[str] = DEFAULT_ALPHABET, gc_lower: float = 0.45, gc_upper: float = 0.55) -> bool:
     """
     Check if `codeword` is a valid DNA codeword, i.e., it:
     - uses only symbols from `alphabet`
     - is run-length controlled for length `ell`
     - is GC-balanced
     """
-    return has_valid_alphabet(codeword, alphabet) and is_run_length_controlled(codeword, ell) and is_gc_balanced(codeword)
+    return has_valid_alphabet(codeword, alphabet) and is_run_length_controlled(codeword, ell) and is_gc_balanced(codeword, gc_lower, gc_upper)
