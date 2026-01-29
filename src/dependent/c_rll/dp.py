@@ -74,9 +74,10 @@ class CRLLCodeGenerator:
         
         print("building dp cache...")
         self._build_cache()
-        print(f"dp cache built! size: {len(self.cache)} entries")
+        print(f"dp cache built! cardinality: {len(self.cache)} entries")
         print(f"estimated storage: {len(self.cache) * 8} bytes (~{len(self.cache) * 8 / 1024:.2f} KB)")
         print(f"I'm able to encode binary values of up to {math.floor(math.log2(self.get_capacity()))} bits!")
+        print(f"information density: {self.information_density()}")
     
     def _get_valid_next_symbols(self, state: State, remaining: int) -> List[str]:
         """
