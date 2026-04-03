@@ -14,6 +14,7 @@ from typing import Sequence
 from src.dependent.c_rll.dp import CRLLCodeGenerator
 from src.utils.evaluation import info_density
 from src.utils.constraints import is_gc_balanced, is_run_length_controlled
+# from src.independent.edgecap.rs_code import rs_encode, rs_decode
 
 class EdgeCapCRLLGenerator(CRLLCodeGenerator):
     """
@@ -94,6 +95,43 @@ class EdgeCapCRLLGenerator(CRLLCodeGenerator):
             return 0.0
         return info_density(capacity, self.capped_length)
 
+    def get_primer(self, binary_value: int) -> str:
+        """
+        Get the primer for a binary value.
+        """
+        codeword = self.encode_capped(binary_value)
+        complement = {
+            "A": "T",
+            "T": "A",
+            "C": "G",
+            "G": "C",
+        }
+        primer = "".join(complement[ch] for ch in reversed(codeword))
+        return primer
+
+    def decode_seq(self, dna_sequence: str, *, bit_length: int) -> list[str]:
+        """
+        Decode a concatenated capped DNA sequence into fixed-width bitstrings.
+        """
+        if bit_length <= 0:
+            raise ValueError("bit_length must be > 0")
+        if len(dna_sequence) % self.capped_length != 0:
+            raise ValueError(
+                "DNA sequence length must be a multiple of capped codeword length"
+            )
+
+        bits: list[str] = []
+        for i in range(0, len(dna_sequence), self.capped_length):
+            chunk = dna_sequence[i : i + self.capped_length]
+            bits.append(self.decode_capped(chunk, validate_caps=True))
+
+        return [format(int(b, 2) if b else 0, f"0{bit_length}b") for b in bits]
+
+    def encode_seq(self, bits: list[str]) -> str:
+        """
+        Encode a list of fixed-width bitstrings into a concatenated capped DNA sequence.
+        """
+        return "".join([self.encode_capped(b) for b in bits])
 
 def test_edgecap_information_density():
     gen = EdgeCapCRLLGenerator(length=10, max_run=3, gc_lower=0.4, gc_upper=0.6)
@@ -153,8 +191,27 @@ def simulate_edgecap_feasibility(
 
 
 def main() -> None:
-    result = simulate_edgecap_feasibility(length=8, max_run=3, gc_lower=0.4, gc_upper=0.6, limit=None)
-    print(result)
+    # result = simulate_edgecap_feasibility(length=8, max_run=3, gc_lower=0.4, gc_upper=0.6, limit=None)
+    # print(result)
+    gen = EdgeCapCRLLGenerator(length=5, max_run=3, gc_lower=0.4, gc_upper=0.6)
+    print("capped info density: ", gen.capped_information_density())
+
+    # sentence = "This is a cat"
+    # print("sentence: ", sentence)
+    # bits = [format(ord(ch), '08b') for ch in sentence]
+    # print("sentence as 8-bit binaries: ", bits)
+    # codewords = gen.encode_seq(bits)
+    # print("codewords: ", codewords)
+    # target = "cat"
+    # primer = ""
+    # for ch in target:
+    #     primer += gen.get_primer(format(ord(ch), '08b'))
+    # print("primer: ", primer)
+
+    # decoded_bits = gen.decode_seq(codewords, bit_length=8)
+    # print("decoded bits: ", decoded_bits)
+    # print("decoded bits == bits: ", decoded_bits == bits)
+
 
 if __name__ == "__main__":
     main()

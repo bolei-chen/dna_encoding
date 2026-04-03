@@ -74,7 +74,7 @@ class CRLLCodeGenerator:
         
         print("building dp cache...")
         self._build_cache()
-        print(f"dp cache built! cardinality: {len(self.cache)} entries")
+        print(f"dp cache built! cardinality: {self.get_capacity()} entries")
         print(f"estimated storage: {len(self.cache) * 8} bytes (~{len(self.cache) * 8 / 1024:.2f} KB)")
         print(f"I'm able to encode binary values of up to {math.floor(math.log2(self.get_capacity()))} bits!")
         print(f"information density: {self.information_density()}")
@@ -172,18 +172,23 @@ class CRLLCodeGenerator:
             for length in range(0, self.length + 1):
                 self._count_valid_sequences(state, length)
     
-    def encode(self, binary_value: int) -> str:
+    def encode(self, binary_value: int | str) -> str:
         """
         Encode a binary value into a DNA sequence of the configured length.
         
         Args:
-            binary_value: Non-negative integer to encode
+            binary_value: Non-negative integer or bitstring to encode
         Returns:
             DNA sequence as string
             
         Raises:
             ValueError: If binary_value is too large for given length
         """
+        if isinstance(binary_value, str):
+            if any(ch not in "01" for ch in binary_value):
+                raise ValueError("binary_value bitstring must contain only '0' and '1'")
+            binary_value = int(binary_value, 2) if binary_value else 0
+
         initial_state = State(None, 0, 0)
         total_capacity = self._count_valid_sequences(initial_state, self.length)
         
@@ -224,15 +229,16 @@ class CRLLCodeGenerator:
         
         return ''.join(sequence)
     
-    def decode(self, dna_sequence: str) -> int:
+    def decode(self, dna_sequence: str, *, bit_length: int | None = None) -> str:
         """
         Decode a DNA sequence back to its binary value.
         
         Args:
             dna_sequence: DNA sequence string
+            bit_length: Optional bit length for zero-padding the output
             
         Returns:
-            Binary value (non-negative integer)
+            Binary value as bitstring
         """
         length = len(dna_sequence)
         if length != self.length:
@@ -262,7 +268,11 @@ class CRLLCodeGenerator:
             
             state = self._transition(state, sym)
         
-        return binary_value
+        if bit_length is None:
+            return format(binary_value, "b")
+        if bit_length < 0:
+            raise ValueError("bit_length must be >= 0")
+        return format(binary_value, f"0{bit_length}b")
     
     def get_capacity(self) -> int:
         """
