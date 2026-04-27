@@ -5,7 +5,7 @@ This module demonstrates an in-silico workflow:
 1) Encode text into concatenated Edge-Cap codewords
 2) Build target primers and verify exact-match binding sites
 3) Compute thermodynamic primer metrics
-4) Evaluate off-target specificity on background strands
+4) Evaluate off-target specificity using a thermodynamic binding model
 5) Verify search position accuracy
 """
 
@@ -37,7 +37,7 @@ class PCRConditions:
     dv_conc_mM: float = 1.5
     dntp_conc_mM: float = 0.2
     primer_conc_nM: float = 250.0
-    annealing_temp_c: float = 60.0
+    annealing_temp_c: float = 65.0
 
 
 def _text_to_bits(text: str, *, bit_length: int = 8) -> List[str]:
@@ -158,6 +158,242 @@ def _primer_metrics_primer3(
     }
 
 
+def _sequence_identity(seq_a: str, seq_b: str) -> float:
+    """
+    Compute fractional sequence identity between two equal-length strings.
+    """
+    if len(seq_a) != len(seq_b):
+        raise ValueError("sequences must be the same length")
+    matches = sum(a == b for a, b in zip(seq_a, seq_b))
+    return matches / len(seq_a)
+
+
+def _off_target_analysis(
+    *,
+    primer: str,
+    background_strands: List[str],
+    identity_threshold: float = 0.70,
+) -> Dict[str, Any]:
+    """
+    Evaluate off-target binding specificity using a sequence identity model.
+
+    For each background strand, a sliding window of primer length is scanned.
+    A window is flagged as a potential off-target binding site if its sequence
+    identity with the primer exceeds identity_threshold. A strand is considered
+    an off-target hit if any such window is found.
+
+    Args:
+        primer: the target primer sequence
+        background_strands: list of encoded DNA strands not containing the target
+        identity_threshold: minimum fractional identity to flag a window as a
+            hit (default 0.70, i.e. 70%)
+
+    Returns:
+        Dictionary summarising off-target binding events across all background
+        strands.
+    """
+    primer_len = len(primer)
+    strands_with_hit = 0
+    total_hits = 0
+    max_hits_single_strand = 0
+    max_identity_observed = 0.0
+
+    for strand_idx, strand in enumerate(background_strands):
+        if (strand_idx + 1) % 50 == 0:
+            print(f"  ...processed {strand_idx + 1}/{len(background_strands)} strands")
+
+        hits_this_strand = 0
+        for i in range(len(strand) - primer_len + 1):
+            subseq = strand[i: i + primer_len]
+            identity = _sequence_identity(primer, subseq)
+            if identity > max_identity_observed:
+                max_identity_observed = identity
+            if identity >= identity_threshold:
+                hits_this_strand += 1
+
+        total_hits += hits_this_strand
+        if hits_this_strand > 0:
+            strands_with_hit += 1
+        if hits_this_strand > max_hits_single_strand:
+            max_hits_single_strand = hits_this_strand
+
+    return {
+        "model": "sequence_identity",
+        "identity_threshold": identity_threshold,
+        "background_strands_tested": len(background_strands),
+        "strands_with_any_off_target_hit": strands_with_hit,
+        "total_off_target_hits": total_hits,
+        "max_hits_in_single_strand": max_hits_single_strand,
+        "off_target_hit_rate": strands_with_hit / len(background_strands),
+        "max_identity_observed": round(max_identity_observed, 4),
+    }
+
+
+def _thermodynamic_off_target_analysis(
+    *,
+    primer: str,
+    background_strands: List[str],
+    conditions: PCRConditions,
+    dg_threshold_kcal: float = -9.0,
+) -> Dict[str, Any]:
+    """
+    Evaluate off-target binding specificity using a thermodynamic model.
+
+    For each background strand, all subsequences of the same length as the
+    primer are extracted. Primer3's heterodimer calculation computes the binding
+    free energy (delta G) between the primer and each subsequence. A subsequence
+    is flagged as a potential off-target binding site if its delta G is at or
+    below dg_threshold_kcal, indicating thermodynamically stable binding under
+    the given conditions.
+
+    Requires primer3 to be installed; returns a skipped sentinel dict if not.
+
+    Args:
+        primer: the target primer sequence
+        background_strands: list of encoded DNA strands not containing the target
+        conditions: thermodynamic conditions for the heterodimer calculation
+        dg_threshold_kcal: delta G threshold in kcal/mol (default -9.0,
+            a standard threshold for stable hybridisation under typical
+            lab conditions)
+
+    Returns:
+        Dictionary summarising off-target binding events across all background
+        strands.
+    """
+    if primer3 is None:
+        return {"model": "thermodynamic_heterodimer", "skipped": "primer3 not installed"}
+
+    primer_len = len(primer)
+    strands_with_hit = 0
+    total_hits = 0
+    max_hits_single_strand = 0
+    min_dg_observed = 0.0
+
+    for strand_idx, strand in enumerate(background_strands):
+        if (strand_idx + 1) % 50 == 0:
+            print(f"  ...processed {strand_idx + 1}/{len(background_strands)} strands")
+
+        hits_this_strand = 0
+        for i in range(len(strand) - primer_len + 1):
+            subseq = strand[i: i + primer_len]
+            result = primer3.calc_heterodimer(
+                primer,
+                subseq,
+                mv_conc=conditions.mv_conc_mM,
+                dv_conc=conditions.dv_conc_mM,
+                dntp_conc=conditions.dntp_conc_mM,
+                dna_conc=conditions.primer_conc_nM,
+                temp_c=conditions.annealing_temp_c,
+            )
+            dg_kcal = float(result.dg) / 1000.0
+            if dg_kcal < min_dg_observed:
+                min_dg_observed = dg_kcal
+            if dg_kcal <= dg_threshold_kcal:
+                hits_this_strand += 1
+
+        total_hits += hits_this_strand
+        if hits_this_strand > 0:
+            strands_with_hit += 1
+        if hits_this_strand > max_hits_single_strand:
+            max_hits_single_strand = hits_this_strand
+
+    return {
+        "model": "thermodynamic_heterodimer",
+        "dg_threshold_kcal_mol": dg_threshold_kcal,
+        "background_strands_tested": len(background_strands),
+        "strands_with_any_off_target_hit": strands_with_hit,
+        "total_off_target_hits": total_hits,
+        "max_hits_in_single_strand": max_hits_single_strand,
+        "off_target_hit_rate": strands_with_hit / len(background_strands),
+        "min_dg_observed_kcal_mol": round(min_dg_observed, 4),
+    }
+
+
+def _three_prime_anchored_off_target_analysis(
+    *,
+    primer: str,
+    background_strands: List[str],
+    conditions: PCRConditions,
+    three_prime_len: int = 8,
+    dg_threshold_kcal: float = -6.0,
+) -> Dict[str, Any]:
+    """
+    Evaluate off-target binding specificity using a 3'-anchored thermodynamic model.
+
+    In PCR, spurious extension only occurs if the 3' end of the primer finds a
+    stable binding site — the rest of the primer is irrelevant if the 3' end is
+    dangling. This function therefore slides the 3' terminal sub-primer
+    independently across the full length of each background strand, asking:
+    can the 3' end land stably anywhere on this strand?
+
+    A strand is flagged as a hit if the minimum ΔG observed across all 3'
+    sub-primer windows is at or below dg_threshold_kcal. This is fully decoupled
+    from the full-primer scan — it is the most conservative and biologically
+    meaningful PCR specificity check.
+
+    Requires primer3 to be installed; returns a skipped sentinel dict if not.
+
+    Args:
+        primer: the target primer sequence
+        background_strands: list of encoded DNA strands not containing the target
+        conditions: thermodynamic conditions
+        three_prime_len: number of 3'-terminal bases to evaluate (default 8,
+            roughly one codeword's worth)
+        dg_threshold_kcal: ΔG threshold in kcal/mol for the 3' sub-primer
+            (default -6.0; appropriate for a short fragment)
+
+    Returns:
+        Dictionary summarising 3'-anchored off-target binding events.
+    """
+    if primer3 is None:
+        return {"model": "three_prime_anchored", "skipped": "primer3 not installed"}
+
+    three_prime_sub = primer[-three_prime_len:]
+
+    strands_with_hit = 0
+    total_hits = 0
+    max_hits_single_strand = 0
+    min_dg_3p_observed = 0.0
+
+    for strand_idx, strand in enumerate(background_strands):
+        if (strand_idx + 1) % 50 == 0:
+            print(f"  ...processed {strand_idx + 1}/{len(background_strands)} strands")
+
+        # Slide the 3' sub-primer independently across the full strand
+        strand_min_dg = 0.0
+        for j in range(len(strand) - three_prime_len + 1):
+            sub_window = strand[j: j + three_prime_len]
+            result = primer3.calc_heterodimer(
+                three_prime_sub,
+                sub_window,
+                mv_conc=conditions.mv_conc_mM,
+                dv_conc=conditions.dv_conc_mM,
+                dntp_conc=conditions.dntp_conc_mM,
+                dna_conc=conditions.primer_conc_nM,
+                temp_c=conditions.annealing_temp_c,
+            )
+            dg_3p = float(result.dg) / 1000.0
+            if dg_3p < strand_min_dg:
+                strand_min_dg = dg_3p
+
+        if strand_min_dg < min_dg_3p_observed:
+            min_dg_3p_observed = strand_min_dg
+        if strand_min_dg <= dg_threshold_kcal:
+            strands_with_hit += 1
+            total_hits += 1
+
+    return {
+        "model": "three_prime_anchored",
+        "three_prime_len_nt": three_prime_len,
+        "dg_threshold_kcal_mol": dg_threshold_kcal,
+        "background_strands_tested": len(background_strands),
+        "strands_with_any_off_target_hit": strands_with_hit,
+        "total_off_target_hits": total_hits,
+        "off_target_hit_rate": strands_with_hit / len(background_strands),
+        "min_dg_3p_observed_kcal_mol": round(min_dg_3p_observed, 4),
+    }
+
+
 def _generate_random_payload(
     *,
     rng: random.Random,
@@ -221,7 +457,9 @@ class WordPrimerSimulationResult:
     expected_word_positions_char_idx: List[int]
     primer_metrics_biopython: Dict[str, float]
     primer_metrics_primer3: Dict[str, float | str]
-    off_target_analysis: Dict[str, int]
+    off_target_analysis_identity: Dict[str, Any]
+    off_target_analysis_thermodynamic: Dict[str, Any]
+    off_target_analysis_three_prime: Dict[str, Any]
     search_position_accurate: bool
 
     @property
@@ -242,6 +480,9 @@ def simulate_word_primer_binding(
     bit_length: int = 8,
     background_count: int = 300,
     background_seed: int = 7,
+    identity_threshold: float = 0.70,
+    dg_threshold_kcal: float = -9.0,
+    three_prime_len: int = 8,
 ) -> WordPrimerSimulationResult:
     """
     Simulate random-access hybridisation retrieval for a target word
@@ -250,7 +491,7 @@ def simulate_word_primer_binding(
     Reports:
     - Exact binding site positions (nt and codeword index)
     - Primer thermodynamic metrics (Tm, GC, hairpin, homodimer)
-    - Off-target specificity against background strands
+    - Off-target specificity via thermodynamic heterodimer model
     - Search position accuracy (binding positions match expected character positions)
     """
     if not payload_text:
@@ -292,7 +533,7 @@ def simulate_word_primer_binding(
     primer_metrics_biopython = _primer_metrics_biopython(target_primer, pcr_conditions)
     primer_metrics_primer3 = _primer_metrics_primer3(target_primer, pcr_conditions)
 
-    # Off-target specificity: test primer against background strands
+    # Generate background strands and run thermodynamic off-target analysis
     background_payloads = _generate_background_payloads_without_target(
         target_word=target_word,
         count=background_count,
@@ -303,18 +544,40 @@ def simulate_word_primer_binding(
         _encode_text_to_strand(text, generator=generator, bit_length=bit_length)
         for text in background_payloads
     ]
-    off_target_binding_counts = [
-        len(_count_primer_binding_sites(strand, target_primer))
-        for strand in background_strands
-    ]
-    off_target_analysis = {
-        "background_strands_tested": background_count,
-        "strands_with_any_primer_hit": sum(
-            1 for v in off_target_binding_counts if v > 0
-        ),
-        "total_off_target_primer_hits": sum(off_target_binding_counts),
-        "max_primer_hits_in_single_background_strand": max(off_target_binding_counts),
-    }
+    print(
+        f"Running sequence-identity off-target analysis on {background_count} "
+        f"background strands ({len(background_strands[0])} nt each, "
+        f"identity threshold = {identity_threshold:.0%})..."
+    )
+    off_target_analysis_identity = _off_target_analysis(
+        primer=target_primer,
+        background_strands=background_strands,
+        identity_threshold=identity_threshold,
+    )
+
+    print(
+        f"Running thermodynamic off-target analysis on {background_count} "
+        f"background strands ({len(background_strands[0])} nt each, "
+        f"dG threshold = {dg_threshold_kcal} kcal/mol)..."
+    )
+    off_target_analysis_thermodynamic = _thermodynamic_off_target_analysis(
+        primer=target_primer,
+        background_strands=background_strands,
+        conditions=pcr_conditions,
+        dg_threshold_kcal=dg_threshold_kcal,
+    )
+
+    print(
+        f"Running 3'-anchored thermodynamic off-target analysis on {background_count} "
+        f"background strands (3' region = {three_prime_len} nt)..."
+    )
+    off_target_analysis_three_prime = _three_prime_anchored_off_target_analysis(
+        primer=target_primer,
+        background_strands=background_strands,
+        conditions=pcr_conditions,
+        three_prime_len=three_prime_len,
+        dg_threshold_kcal=dg_threshold_kcal,
+    )
 
     return WordPrimerSimulationResult(
         payload_text=payload_text,
@@ -329,7 +592,9 @@ def simulate_word_primer_binding(
         expected_word_positions_char_idx=expected_word_positions_char_idx,
         primer_metrics_biopython=primer_metrics_biopython,
         primer_metrics_primer3=primer_metrics_primer3,
-        off_target_analysis=off_target_analysis,
+        off_target_analysis_identity=off_target_analysis_identity,
+        off_target_analysis_thermodynamic=off_target_analysis_thermodynamic,
+        off_target_analysis_three_prime=off_target_analysis_three_prime,
         search_position_accurate=search_position_accurate,
     )
 
@@ -353,7 +618,9 @@ def _as_json_ready(result: WordPrimerSimulationResult) -> Dict[str, Any]:
         "target_segment": result.target_segment,
         "primer_metrics_biopython": result.primer_metrics_biopython,
         "primer_metrics_primer3": result.primer_metrics_primer3,
-        "off_target_analysis": result.off_target_analysis,
+        "off_target_analysis_identity": result.off_target_analysis_identity,
+        "off_target_analysis_thermodynamic": result.off_target_analysis_thermodynamic,
+        "off_target_analysis_three_prime": result.off_target_analysis_three_prime,
     }
 
 
@@ -394,7 +661,7 @@ def main() -> None:
         dv_conc_mM=1.5,
         dntp_conc_mM=0.2,
         primer_conc_nM=250.0,
-        annealing_temp_c=60.0,
+        annealing_temp_c=68.0,
     )
     result = simulate_word_primer_binding(
         payload_text=payload_text,
@@ -404,6 +671,9 @@ def main() -> None:
         bit_length=8,
         background_count=300,
         background_seed=7,
+        identity_threshold=0.70,
+        dg_threshold_kcal=-4.0,
+        three_prime_len=8,
     )
 
     out = _as_json_ready(result)

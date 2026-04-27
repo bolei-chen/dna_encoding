@@ -196,21 +196,22 @@ def main() -> None:
     gen = EdgeCapCRLLGenerator(length=5, max_run=3, gc_lower=0.4, gc_upper=0.6)
     print("capped info density: ", gen.capped_information_density())
 
-    # sentence = "This is a cat"
-    # print("sentence: ", sentence)
-    # bits = [format(ord(ch), '08b') for ch in sentence]
-    # print("sentence as 8-bit binaries: ", bits)
-    # codewords = gen.encode_seq(bits)
-    # print("codewords: ", codewords)
-    # target = "cat"
-    # primer = ""
-    # for ch in target:
-    #     primer += gen.get_primer(format(ord(ch), '08b'))
-    # print("primer: ", primer)
 
-    # decoded_bits = gen.decode_seq(codewords, bit_length=8)
-    # print("decoded bits: ", decoded_bits)
-    # print("decoded bits == bits: ", decoded_bits == bits)
+    sentence = "This is a cat"
+    print("sentence: ", sentence)
+    bits = [format(ord(ch), '08b') for ch in sentence]
+    print("sentence as 8-bit binaries: ", bits)
+    codewords = gen.encode_seq(bits)
+
+    target = "cat"
+    primer = ""
+    for ch in target:
+        primer += gen.get_primer(format(ord(ch), '08b'))
+    print("primer: ", primer)
+
+    decoded_bits = gen.decode_seq(codewords, bit_length=8)
+    print("decoded bits: ", decoded_bits)
+    print("decoded bits == bits: ", decoded_bits == bits)
 
 
 if __name__ == "__main__":
