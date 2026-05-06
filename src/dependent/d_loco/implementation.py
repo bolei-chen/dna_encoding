@@ -19,7 +19,7 @@ from typing import List, Sequence
 from tqdm import tqdm
 
 
-from src.utils.evaluation import info_density
+from src.utils.eval import info_density
 from src.utils.constraints import DEFAULT_ALPHABET, has_valid_alphabet, is_run_length_controlled, is_valid_codeword
 
 

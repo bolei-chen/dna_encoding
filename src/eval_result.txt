@@ -1,0 +1,49 @@
+=== crll random-access simulation ===
+generator_name: crll
+primer_metrics_biopython: {'length_nt': 20.0, 'gc_percent': 55.00000000000001, 'tm_wallace_c': 62.0, 'tm_nn_c': 62.88160812724783}
+primer_metrics_primer3: {'tm_c': 61.840391460906005, 'hairpin_tm_c': 0.0, 'hairpin_dg': 0.0, 'homodimer_tm_c': -16.12313068650343, 'homodimer_dg': 275.0939143662838}
+off_target_analysis_identity: {'model': 'sequence_identity', 'identity_threshold': 0.7, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 292, 'total_off_target_hits': 357, 'max_hits_in_single_strand': 4, 'off_target_hit_rate': 0.292, 'max_identity_observed': 0.8}
+off_target_analysis_thermodynamic: {'model': 'thermodynamic_heterodimer', 'dg_threshold_kcal_mol': -9.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 4, 'total_off_target_hits': 7, 'max_hits_in_single_strand': 3, 'off_target_hit_rate': 0.004, 'min_dg_observed_kcal_mol': -9.5097}
+off_target_analysis_three_prime: {'model': 'three_prime_anchored', 'three_prime_len_nt': 8, 'dg_threshold_kcal_mol': -4.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 0, 'total_off_target_hits': 0, 'off_target_hit_rate': 0.0, 'min_dg_3p_observed_kcal_mol': -2.6427}
+=== reverse complement collision report ===
+alphabet_size: 94
+collision_count: 8
+has_collision: True
+collisions: [{'char_a': 'a', 'char_b': 'm', 'codeword_a': 'AGCCT', 'codeword_b': 'AGGCT', 'is_self_reverse_complement': False}, {'char_a': 'c', 'char_b': '=', 'codeword_a': 'AGCGT', 'codeword_b': 'ACGCT', 'is_self_reverse_complement': False}, {'char_a': 'o', 'char_b': '1', 'codeword_a': 'AGGGT', 'codeword_b': 'ACCCT', 'is_self_reverse_complement': False}, {'char_a': 'y', 'char_b': 'U', 'codeword_a': 'AGTCT', 'codeword_b': 'AGACT', 'is_self_reverse_complement': False}, {'char_a': 'I', 'char_b': 'Y', 'codeword_a': 'ACTCT', 'codeword_b': 'AGAGT', 'is_self_reverse_complement': False}, {'char_a': 'M', 'char_b': ')', 'codeword_a': 'ACTGT', 'codeword_b': 'ACAGT', 'is_self_reverse_complement': False}, {'char_a': '3', 'char_b': '?', 'codeword_a': 'ACCGT', 'codeword_b': 'ACGGT', 'is_self_reverse_complement': False}, {'char_a': '%', 'char_b': '}', 'codeword_a': 'ACACT', 'codeword_b': 'AGTGT', 'is_self_reverse_complement': False}]
+
+
+=== dloco random-access simulation ===
+generator_name: dloco
+primer_metrics_biopython: {'length_nt': 20.0, 'gc_percent': 50.0, 'tm_wallace_c': 60.0, 'tm_nn_c': 60.174297193045504}
+primer_metrics_primer3: {'tm_c': 59.22536956991934, 'hairpin_tm_c': 0.0, 'hairpin_dg': 0.0, 'homodimer_tm_c': -22.919304320508644, 'homodimer_dg': -1253.7214342569}
+off_target_analysis_identity: {'model': 'sequence_identity', 'identity_threshold': 0.7, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 812, 'total_off_target_hits': 1723, 'max_hits_in_single_strand': 6, 'off_target_hit_rate': 0.812, 'max_identity_observed': 0.9}
+off_target_analysis_thermodynamic: {'model': 'thermodynamic_heterodimer', 'dg_threshold_kcal_mol': -9.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 0, 'total_off_target_hits': 0, 'max_hits_in_single_strand': 0, 'off_target_hit_rate': 0.0, 'min_dg_observed_kcal_mol': -7.4587}
+off_target_analysis_three_prime: {'model': 'three_prime_anchored', 'three_prime_len_nt': 8, 'dg_threshold_kcal_mol': -4.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 0, 'total_off_target_hits': 0, 'off_target_hit_rate': 0.0, 'min_dg_3p_observed_kcal_mol': -1.5427}
+=== reverse complement collision report ===
+alphabet_size: 94
+collision_count: 5
+has_collision: True
+collisions: [{'char_a': 'l', 'char_b': '\\', 'codeword_a': 'ATCAT', 'codeword_b': 'ATGAT', 'is_self_reverse_complement': False}, {'char_a': 'M', 'char_b': '=', 'codeword_a': 'ATTAT', 'codeword_b': 'ATAAT', 'is_self_reverse_complement': False}, {'char_a': 'X', 'char_b': '|', 'codeword_a': 'ATTCT', 'codeword_b': 'AGAAT', 'is_self_reverse_complement': False}, {'char_a': '1', 'char_b': '!', 'codeword_a': 'AACTT', 'codeword_b': 'AAGTT', 'is_self_reverse_complement': False}, {'char_a': '-', 'char_b': '`', 'codeword_a': 'AACAT', 'codeword_b': 'ATGTT', 'is_self_reverse_complement': False}]
+
+=== edgecap random-access simulation ===
+generator_name: edgecap_crll
+codeword_length_nt: 7
+strand_length_nt: 5103
+binds: True
+exact_binding_site_count: 2
+binding_positions_nt: [28, 4382]
+binding_positions_codeword_idx: [4, 626]
+expected_word_positions_char_idx: [4, 626]
+search_position_accurate: True
+target_primer: GTAGCTGTAGGCTGTACCCTGTCACCTG
+target_segment: CAGGTGACAGGGTACAGCCTACAGCTAC
+primer_metrics_biopython: {'length_nt': 28.0, 'gc_percent': 57.14285714285714, 'tm_wallace_c': 88.0, 'tm_nn_c': 70.79602012870919}
+primer_metrics_primer3: {'tm_c': 70.06002005230704, 'hairpin_tm_c': 0.0, 'hairpin_dg': 0.0, 'homodimer_tm_c': -3.757952003900357, 'homodimer_dg': -1176.839651380227}
+off_target_analysis_identity: {'model': 'sequence_identity', 'identity_threshold': 0.7, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 17, 'total_off_target_hits': 18, 'max_hits_in_single_strand': 2, 'off_target_hit_rate': 0.017, 'max_identity_observed': 0.75}
+off_target_analysis_thermodynamic: {'model': 'thermodynamic_heterodimer', 'dg_threshold_kcal_mol': -9.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 459, 'total_off_target_hits': 4063, 'max_hits_in_single_strand': 31, 'off_target_hit_rate': 0.459, 'min_dg_observed_kcal_mol': -13.6462}
+off_target_analysis_three_prime: {'model': 'three_prime_anchored', 'three_prime_len_nt': 8, 'dg_threshold_kcal_mol': -4.0, 'background_strands_tested': 1000, 'strands_with_any_off_target_hit': 0, 'total_off_target_hits': 0, 'off_target_hit_rate': 0.0, 'min_dg_3p_observed_kcal_mol': -2.1344}
+=== reverse complement collision report ===
+alphabet_size: 94
+collision_count: 0
+has_collision: False
+collisions: []

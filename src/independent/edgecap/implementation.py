@@ -12,7 +12,7 @@ import math
 from typing import Sequence
 
 from src.dependent.c_rll.dp import CRLLCodeGenerator
-from src.utils.evaluation import info_density
+from src.utils.eval import info_density
 from src.utils.constraints import is_gc_balanced, is_run_length_controlled
 # from src.independent.edgecap.rs_code import rs_encode, rs_decode
 

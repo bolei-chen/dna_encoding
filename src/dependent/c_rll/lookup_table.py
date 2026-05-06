@@ -15,7 +15,7 @@ import math
 from typing import Iterable, Iterator, List, Sequence, Tuple, Set
 
 from src.utils.constraints import DEFAULT_ALPHABET
-from src.utils.evaluation import info_density
+from src.utils.eval import info_density
 from src.utils.constraints import is_valid_codeword, is_run_length_controlled, is_gc_balanced
 
 

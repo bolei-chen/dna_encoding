@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from src.utils.evaluation import info_density
+from src.utils.eval import info_density
 
 @dataclass(frozen=True)
 class State:
