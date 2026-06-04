@@ -193,9 +193,8 @@ def simulate_edgecap_feasibility(
 def main() -> None:
     # result = simulate_edgecap_feasibility(length=8, max_run=3, gc_lower=0.4, gc_upper=0.6, limit=None)
     # print(result)
-    gen = EdgeCapCRLLGenerator(length=5, max_run=3, gc_lower=0.4, gc_upper=0.6)
+    gen = EdgeCapCRLLGenerator(length=12, max_run=3, gc_lower=0.4, gc_upper=0.6)
     print("capped info density: ", gen.capped_information_density())
-
 
     sentence = "This is a cat"
     print("sentence: ", sentence)
@@ -205,7 +204,7 @@ def main() -> None:
 
     target = "cat"
     primer = ""
-    for ch in target:
+    for ch in reversed(target):
         primer += gen.get_primer(format(ord(ch), '08b'))
     print("primer: ", primer)
 

@@ -208,7 +208,7 @@ def main() -> None:
     """
     Main function to test the implementation.
     """
-    n = 10
+    n = 5
     m = 4
     d = 0
     k = 2

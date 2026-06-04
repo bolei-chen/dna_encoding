@@ -297,6 +297,6 @@ class CRLLCodeGenerator:
         return info_density(capacity, self.length)
 
 if __name__ == "__main__":
-    gen = CRLLCodeGenerator(length=10, max_run=3, gc_lower=0.4, gc_upper=0.6)
+    gen = CRLLCodeGenerator(length=5, max_run=3, gc_lower=0.4, gc_upper=0.6)
     print("information density: ", gen.information_density())
 
