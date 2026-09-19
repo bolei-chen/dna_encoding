@@ -16,6 +16,14 @@ from src.utils.eval import info_density
 from src.utils.constraints import is_gc_balanced, is_run_length_controlled
 # from src.independent.edgecap.rs_code import rs_encode, rs_decode
 
+
+COMPLEMENT = {
+    "A": "T",
+    "T": "A",
+    "C": "G",
+    "G": "C",
+}
+
 class EdgeCapCRLLGenerator(CRLLCodeGenerator):
     """
     CRLL generator with deterministic edge caps for context-independent concatenation.
@@ -100,13 +108,7 @@ class EdgeCapCRLLGenerator(CRLLCodeGenerator):
         Get the primer for a binary value.
         """
         codeword = self.encode_capped(binary_value)
-        complement = {
-            "A": "T",
-            "T": "A",
-            "C": "G",
-            "G": "C",
-        }
-        primer = "".join(complement[ch] for ch in reversed(codeword))
+        primer = reverse_complement(codeword)
         return primer
 
     def decode_seq(self, dna_sequence: str, *, bit_length: int) -> list[str]:
@@ -132,6 +134,34 @@ class EdgeCapCRLLGenerator(CRLLCodeGenerator):
         Encode a list of fixed-width bitstrings into a concatenated capped DNA sequence.
         """
         return "".join([self.encode_capped(b) for b in bits])
+
+
+def reverse_complement(sequence: str) -> str:
+    """
+    Return the reverse complement of a DNA sequence.
+    """
+    return "".join(COMPLEMENT[ch] for ch in reversed(sequence))
+
+
+def find_primer_binding_indices(dna_sequence: str, primer: str) -> list[int]:
+    """
+    Find all locations where a primer binds on the DNA strand.
+
+    A primer binds to the reverse complement of its own sequence on the
+    template strand. Returns nucleotide indices for all matches.
+    """
+    binding_target = reverse_complement(primer)
+    indices: list[int] = []
+    start = 0
+
+    while True:
+        index = dna_sequence.find(binding_target, start)
+        if index == -1:
+            break
+        indices.append(index)
+        start = index + 1
+
+    return indices
 
 def test_edgecap_information_density():
     gen = EdgeCapCRLLGenerator(length=10, max_run=3, gc_lower=0.4, gc_upper=0.6)
@@ -190,26 +220,67 @@ def simulate_edgecap_feasibility(
     }
 
 
+def print_ascii_codebook(gen: EdgeCapCRLLGenerator) -> None:
+    """
+    Print codebook entries for all 7-bit ASCII characters (0-127).
+    """
+    print("ASCII codebook:")
+    print("dec\thex\tchar\tbits\t\tcodeword")
+    print("-" * 72)
+    for value in range(128):
+        bits = format(value, "08b")
+        codeword = gen.encode_capped(bits)
+        char_label = ascii(chr(value))[1:-1]
+        print(f"{value:3d}\t0x{value:02X}\t{char_label:<4}\t{bits}\t{codeword}")
+
+
+def print_cache_values_for_n(gen: EdgeCapCRLLGenerator, n: int) -> None:
+    """
+    Print DP cache values for entries with remaining length n.
+    """
+    if n < 0 or n > gen.length:
+        raise ValueError(f"n must be between 0 and {gen.length}")
+
+    rows = [
+        (state, value)
+        for (state, remaining), value in gen.cache.items()
+        if remaining == n
+    ]
+    rows.sort(key=lambda item: ((item[0].last_sym or ""), item[0].run_len, item[0].gc_count))
+
+    print(f"DP cache values for n = {n}:")
+    print("state\t\t\tvalue")
+    print("-" * 48)
+    for state, value in rows:
+        print(f"{state!r:<24}\t{value}")
+    print(f"total entries printed: {len(rows)}")
+
+
 def main() -> None:
-    # result = simulate_edgecap_feasibility(length=8, max_run=3, gc_lower=0.4, gc_upper=0.6, limit=None)
-    # print(result)
-    gen = EdgeCapCRLLGenerator(length=12, max_run=3, gc_lower=0.4, gc_upper=0.6)
-    print("capped info density: ", gen.capped_information_density())
+    encoder = EdgeCapCRLLGenerator(length=5, max_run=3, gc_lower=0.4, gc_upper=0.6)
+    print("capped info density: ", encoder.capped_information_density())
 
-    sentence = "This is a cat"
-    print("sentence: ", sentence)
+
+    sentence = "i am very happy to have this conversation with you guys!"
     bits = [format(ord(ch), '08b') for ch in sentence]
-    print("sentence as 8-bit binaries: ", bits)
-    codewords = gen.encode_seq(bits)
+    codewords = encoder.encode_seq(bits)
+    print("Encoded DNA Strand: ", codewords)
 
-    target = "cat"
+    target = "conversation"
+
     primer = ""
     for ch in reversed(target):
-        primer += gen.get_primer(format(ord(ch), '08b'))
+        primer += encoder.get_primer(format(ord(ch), '08b'))
     print("primer: ", primer)
+    target_nt_indices = find_primer_binding_indices(codewords, primer)
+    print("target binding nucleotide indices: ", target_nt_indices)
+    print(
+        "target binding codeword indices: ",
+        [index // encoder.capped_length for index in target_nt_indices],
+    )
 
-    decoded_bits = gen.decode_seq(codewords, bit_length=8)
-    print("decoded bits: ", decoded_bits)
+    decoded_bits = encoder.decode_seq(codewords, bit_length=8)
+    # print("decoded bits: ", decoded_bits)
     print("decoded bits == bits: ", decoded_bits == bits)
 
 
